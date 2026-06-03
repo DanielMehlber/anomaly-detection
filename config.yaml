@@ -1,0 +1,35 @@
+input:
+  provider: VideoFileInputProvider
+  video_path: ""
+
+calibration:
+  duration_seconds: 60
+  threshold_multiplier: 3.5
+
+filters:
+  preprocessing:
+    enabled: false
+    brightness_normalization: true
+  temporal:
+    enabled: true
+    flicker_threshold_multiplier: 3.5
+    black_screen_brightness: 10
+  spatial:
+    enabled: true
+
+events:
+  debounce_frames: 5
+  end_debounce_frames: 3
+  clip_pre_seconds: 2.0
+  clip_post_seconds: 2.0
+  clip_max_seconds: 10.0
+  clip_fps: 8
+
+persistence:
+  database_path: data/anomalies.db
+  keyframe_dir: data/keyframes
+
+ui:
+  refresh_interval_seconds: 5
+  host: localhost
+  port: 8501
