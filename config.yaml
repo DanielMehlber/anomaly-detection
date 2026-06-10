@@ -14,6 +14,9 @@ filters:
     enabled: true
     flicker_threshold_multiplier: 3.5
     black_screen_brightness: 10
+    flicker_hold_frames: 4
+  missing_elements:
+    enabled: true
   spatial:
     enabled: true
 
@@ -24,6 +27,10 @@ events:
   clip_post_seconds: 2.0
   clip_max_seconds: 10.0
   clip_fps: 8
+  suppression_rules:
+    black_screen: [missing_element, keypoint_loss, geometric_distortion]
+    flicker: [missing_element, keypoint_loss, geometric_distortion]
+    geometric_distortion: [keypoint_loss]
 
 persistence:
   database_path: data/anomalies.db

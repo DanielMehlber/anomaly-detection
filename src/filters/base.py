@@ -1,4 +1,6 @@
-"""Base class for pipeline filters."""
+"""
+Abstract base class for analysis filters in the pipe-and-filter pipeline.
+"""
 
 from __future__ import annotations
 
@@ -13,14 +15,32 @@ from src.models.frame import Frame
 
 
 class AbstractFilter(ABC):
-    """Isolated filter unit in the pipe-and-filter architecture."""
+    """
+    Isolated analysis unit.
+
+    Each filter receives a read-only ``Frame`` plus an optional preprocessed
+    image and returns one or more ``FilterResult`` objects.
+    """
 
     name: str = "abstract"
 
     @abstractmethod
     def configure(self, baseline: BaselineStats, config: dict[str, Any]) -> None:
-        """Apply baseline statistics and filter-specific configuration."""
+        """
+        Apply calibration statistics and YAML settings.
+
+        Called once after the calibration window completes.
+        """
 
     @abstractmethod
-    def process(self, frame: Frame, processed_image: np.ndarray | None = None) -> FilterResult:
-        """Analyze a frame and return a metric result."""
+    def process(
+        self,
+        frame: Frame,
+        processed_image: np.ndarray | None = None,
+    ) -> FilterResult | list[FilterResult]:
+        """
+        Analyze a frame and return one or more metric results.
+
+        Implementations should not raise uncaught exceptions; the pipeline wraps
+        calls in a protective try/except block, but local handling is preferred.
+        """

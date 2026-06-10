@@ -12,6 +12,7 @@ from src.pipeline.processor import PipelineProcessor
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse command-line arguments for ``main``."""
     parser = argparse.ArgumentParser(
         description="Detect temporal and spatial anomalies in long-term camera test videos."
     )
@@ -35,6 +36,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
+    """Load configuration and run the analysis pipeline."""
     args = parse_args()
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.INFO,

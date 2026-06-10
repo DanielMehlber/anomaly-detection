@@ -23,6 +23,7 @@ ANOMALY_LABELS = {
     "flicker": "Image Flicker",
     "black_screen": "Black Screen",
     "keypoint_loss": "Missing Control Points",
+    "missing_element": "Missing Element",
     "geometric_distortion": "Spatial Distortion",
 }
 

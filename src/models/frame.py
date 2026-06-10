@@ -1,4 +1,6 @@
-"""Frame data model passed through the analysis pipeline."""
+"""
+Frame data model passed through the analysis pipeline.
+"""
 
 from __future__ import annotations
 
@@ -10,7 +12,13 @@ import numpy as np
 
 @dataclass(frozen=True)
 class Frame:
-    """Read-only frame container with environment metadata."""
+    """
+    Read-only frame container with environment metadata.
+
+    ``timestamp_seconds`` is the environment factor for file-based inputs
+    (video runtime). Live camera providers can populate ``metadata`` with
+    temperature, humidity, or other chamber values.
+    """
 
     image: np.ndarray
     timestamp_seconds: float
@@ -19,6 +27,7 @@ class Frame:
 
     @property
     def grayscale(self) -> np.ndarray:
+        """Return a single-channel version of ``image`` for analysis."""
         import cv2
 
         if len(self.image.shape) == 2:

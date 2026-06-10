@@ -25,6 +25,11 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
+## Documentation
+
+- [Operator guide](for-users.md) — setup, configuration, dashboard usage
+- [Developer guide](for-developers.md) — architecture, algorithms, extension points
+
 ## Quick Start
 
 1. Generate a sample test video (optional):
@@ -33,13 +38,19 @@ pip install -r requirements.txt
 python scripts/generate_test_video.py
 ```
 
-2. Set the video path in `config.yaml` or pass it on the command line:
+2. Run analysis:
 
 ```bash
 python main.py --video data/sample_test.mp4
 ```
 
-3. Launch the offline dashboard (from the project root):
+3. Verify all four demo anomalies are detected:
+
+```bash
+python scripts/verify_detection.py
+```
+
+4. Launch the offline dashboard (from the project root):
 
 ```bash
 python run_dashboard.py
@@ -56,7 +67,7 @@ All behavior is driven by `config.yaml` — no hardcoded thresholds:
 | `input` | Video path and input provider class |
 | `calibration` | Calibration window duration and tolerance multiplier |
 | `filters` | Enable/disable and tune temporal/spatial filters |
-| `events` | Debounce frames for event start/end |
+| `events` | Debounce frames, GIF clip settings, anomaly priority ranking |
 | `persistence` | SQLite database and keyframe directory |
 | `ui` | Dashboard refresh interval |
 
@@ -70,6 +81,17 @@ VideoFileInputProvider → Calibrator (60s) → [Preprocessing] → TemporalFilt
 ```
 
 Extend the system by implementing new subclasses of `AbstractInputProvider` or `AbstractFilter` without changing the pipeline.
+
+### Anomaly priority
+
+When several filters fire on the same frame, only the highest-priority root cause becomes an event. The default order is configured in `config.yaml`:
+
+1. Black Screen
+2. Spatial Distortion
+3. Missing Control Points
+4. Image Flicker
+
+Spatial filters can also pass `HighlightRegion` annotations that are burned into exported GIF clips.
 
 ## Project Layout
 

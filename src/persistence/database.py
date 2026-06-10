@@ -254,6 +254,11 @@ class Database:
             ).fetchall()
             return [dict(row) for row in rows]
 
+    def delete_event(self, event_id: int) -> None:
+        """Remove a superseded or retracted event from persistent storage."""
+        with self._connection() as conn:
+            conn.execute("DELETE FROM events WHERE id = ?", (event_id,))
+
     def get_metric_samples(
         self, test_run_id: int, filter_name: str | None = None
     ) -> list[dict[str, Any]]:

@@ -1,4 +1,10 @@
-"""Temporal anomaly filters: flicker and black screen detection."""
+"""
+Temporal anomaly filters: flicker and black screen detection.
+
+Compares consecutive frames and overall brightness against the calibrated
+baseline. Returns separate results for black-screen and flicker checks so the
+event aggregator can apply priority rules independently.
+"""
 
 from __future__ import annotations
 
@@ -14,7 +20,7 @@ from src.models.frame import Frame
 
 
 class TemporalFilter(AbstractFilter):
-    """Detects time-based anomalies by comparing consecutive frames."""
+    """Detect time-based anomalies by comparing consecutive frames."""
 
     name = "temporal"
 
@@ -23,15 +29,25 @@ class TemporalFilter(AbstractFilter):
         self._flicker_multiplier = 3.5
         self._black_screen_brightness = 10.0
         self._prev_brightness: float | None = None
+        self._flicker_hold_frames = 0
+        self._flicker_hold_after_spike = 4
         self._enabled = True
 
     def configure(self, baseline: BaselineStats, config: dict[str, Any]) -> None:
+        """Load calibrated brightness statistics and YAML thresholds."""
         self._baseline = baseline
         self._enabled = bool(config.get("enabled", True))
         self._flicker_multiplier = float(config.get("flicker_threshold_multiplier", 3.5))
         self._black_screen_brightness = float(config.get("black_screen_brightness", 10))
+        self._flicker_hold_after_spike = int(config.get("flicker_hold_frames", 4))
 
     def process(self, frame: Frame, processed_image: np.ndarray | None = None) -> list[FilterResult]:
+        """
+        Evaluate black-screen and flicker conditions for ``frame``.
+
+        Both checks are always returned so the aggregator can close events even
+        when the current frame is classified under the other temporal mode.
+        """
         image = processed_image if processed_image is not None else frame.image
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) if len(image.shape) == 3 else image
         brightness = float(np.mean(gray))
@@ -42,13 +58,18 @@ class TemporalFilter(AbstractFilter):
                 self._neutral_result(AnomalyType.FLICKER, brightness),
             ]
 
-        flicker_threshold = self._baseline.brightness_std * self._flicker_multiplier
+        flicker_threshold = self._baseline.flicker_threshold
         black_threshold = min(self._black_screen_brightness, self._baseline.black_screen_threshold)
 
         flicker_intensity = 0.0
         if self._prev_brightness is not None:
             flicker_intensity = abs(brightness - self._prev_brightness)
         self._prev_brightness = brightness
+
+        if flicker_intensity > flicker_threshold:
+            self._flicker_hold_frames = self._flicker_hold_after_spike
+        elif self._flicker_hold_frames > 0:
+            self._flicker_hold_frames -= 1
 
         is_black = brightness <= black_threshold
         black_result = FilterResult(
@@ -62,12 +83,12 @@ class TemporalFilter(AbstractFilter):
             metadata={"brightness": brightness, "mode": "black_screen"},
         )
 
-        is_flicker = (not is_black) and flicker_intensity > flicker_threshold
+        is_flicker = (not is_black) and self._flicker_hold_frames > 0
         flicker_result = FilterResult(
             filter_name=self.name,
             anomaly_class=AnomalyClass.TEMPORAL,
             anomaly_type=AnomalyType.FLICKER,
-            metric_value=flicker_intensity,
+            metric_value=max(flicker_intensity, flicker_threshold if is_flicker else 0.0),
             threshold=flicker_threshold,
             is_anomaly=is_flicker,
             highlight_image=self._highlight_full_frame(image, color=(0, 0, 255)) if is_flicker else None,
@@ -77,6 +98,7 @@ class TemporalFilter(AbstractFilter):
         return [black_result, flicker_result]
 
     def _neutral_result(self, anomaly_type: AnomalyType, brightness: float) -> FilterResult:
+        """Return a non-anomalous placeholder result."""
         return FilterResult(
             filter_name=self.name,
             anomaly_class=AnomalyClass.TEMPORAL,
@@ -89,6 +111,7 @@ class TemporalFilter(AbstractFilter):
 
     @staticmethod
     def _highlight_full_frame(image: np.ndarray, color: tuple[int, int, int] = (0, 0, 200)) -> np.ndarray:
+        """Draw a full-frame border used for temporal keyframe previews."""
         overlay = image.copy()
         cv2.rectangle(overlay, (0, 0), (overlay.shape[1] - 1, overlay.shape[0] - 1), color, 8)
         return overlay

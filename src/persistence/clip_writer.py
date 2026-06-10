@@ -1,4 +1,8 @@
-"""Export short GIF clips for anomaly events from the source video."""
+"""
+Export short GIF clips for anomaly events from the source video.
+
+GIFs include optional per-frame spatial highlights supplied by the filters.
+"""
 
 from __future__ import annotations
 
@@ -6,6 +10,9 @@ from pathlib import Path
 
 import cv2
 from PIL import Image
+
+from src.models.events import HighlightRegion
+from src.persistence.highlight_renderer import draw_highlight_regions, lookup_highlight_regions
 
 
 def export_event_gif(
@@ -18,8 +25,14 @@ def export_event_gif(
     post_seconds: float = 2.0,
     max_duration: float = 10.0,
     clip_fps: float = 8.0,
+    frame_highlights: list[tuple[float, list[HighlightRegion]]] | None = None,
 ) -> str | None:
-    """Extract a GIF spanning the event window, padded before/after, capped at max_duration."""
+    """
+    Extract a GIF spanning the event window, padded before/after.
+
+    When ``frame_highlights`` is provided, spatial annotations are burned onto
+    frames that fall inside the event interval.
+    """
     path = Path(video_path)
     if not path.exists():
         return None
@@ -42,14 +55,27 @@ def export_event_gif(
     capture.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
     pil_frames: list[Image.Image] = []
     frame_idx = start_frame
+    highlights = frame_highlights or []
 
     while frame_idx <= end_frame:
         success, frame = capture.read()
         if not success:
             break
+
         if (frame_idx - start_frame) % frame_step == 0:
+            frame_timestamp = frame_idx / source_fps
+            regions = lookup_highlight_regions(
+                frame_timestamp,
+                start_timestamp,
+                end_timestamp,
+                highlights,
+            )
+            if regions:
+                frame = draw_highlight_regions(frame, regions)
+
             rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             pil_frames.append(Image.fromarray(rgb))
+
         frame_idx += 1
 
     capture.release()

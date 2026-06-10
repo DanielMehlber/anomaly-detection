@@ -8,6 +8,8 @@ from typing import Any
 
 import yaml
 
+from src.anomaly_priority import DEFAULT_ANOMALY_PRIORITY, DEFAULT_SUPPRESSION_RULES
+
 
 @dataclass
 class InputConfig:
@@ -32,6 +34,12 @@ class TemporalFilterConfig:
     enabled: bool
     flicker_threshold_multiplier: float
     black_screen_brightness: float
+    flicker_hold_frames: int
+
+
+@dataclass
+class MissingElementsFilterConfig:
+    enabled: bool
 
 
 @dataclass
@@ -43,6 +51,7 @@ class SpatialFilterConfig:
 class FiltersConfig:
     preprocessing: PreprocessingConfig
     temporal: TemporalFilterConfig
+    missing_elements: MissingElementsFilterConfig
     spatial: SpatialFilterConfig
 
 
@@ -54,6 +63,8 @@ class EventsConfig:
     clip_post_seconds: float
     clip_max_seconds: float
     clip_fps: float
+    anomaly_priority: list[str]
+    suppression_rules: dict[str, list[str]]
 
 
 @dataclass
@@ -84,6 +95,15 @@ def _section(data: dict[str, Any], key: str) -> dict[str, Any]:
 
 
 def load_config(path: str | Path) -> AppConfig:
+    """
+    Load and validate application settings from a YAML file.
+
+    Args:
+        path: Path to ``config.yaml`` or an override file.
+
+    Returns:
+        A fully populated ``AppConfig`` dataclass tree.
+    """
     config_path = Path(path)
     with config_path.open(encoding="utf-8") as handle:
         raw = yaml.safe_load(handle) or {}
@@ -93,6 +113,7 @@ def load_config(path: str | Path) -> AppConfig:
     filters_raw = _section(raw, "filters")
     pre_cfg = _section(filters_raw, "preprocessing")
     temp_cfg = _section(filters_raw, "temporal")
+    missing_cfg = _section(filters_raw, "missing_elements")
     spatial_cfg = _section(filters_raw, "spatial")
     events_cfg = _section(raw, "events")
     persist_cfg = _section(raw, "persistence")
@@ -118,6 +139,10 @@ def load_config(path: str | Path) -> AppConfig:
                     temp_cfg.get("flicker_threshold_multiplier", 3.5)
                 ),
                 black_screen_brightness=float(temp_cfg.get("black_screen_brightness", 10)),
+                flicker_hold_frames=int(temp_cfg.get("flicker_hold_frames", 4)),
+            ),
+            missing_elements=MissingElementsFilterConfig(
+                enabled=bool(missing_cfg.get("enabled", True)),
             ),
             spatial=SpatialFilterConfig(
                 enabled=bool(spatial_cfg.get("enabled", True)),
@@ -130,6 +155,12 @@ def load_config(path: str | Path) -> AppConfig:
             clip_post_seconds=float(events_cfg.get("clip_post_seconds", 2.0)),
             clip_max_seconds=float(events_cfg.get("clip_max_seconds", 10.0)),
             clip_fps=float(events_cfg.get("clip_fps", 8.0)),
+            anomaly_priority=list(
+                events_cfg.get("anomaly_priority", list(DEFAULT_ANOMALY_PRIORITY))
+            ),
+            suppression_rules=dict(
+                events_cfg.get("suppression_rules", DEFAULT_SUPPRESSION_RULES)
+            ),
         ),
         persistence=PersistenceConfig(
             database_path=persist_cfg.get("database_path", "data/anomalies.db"),
